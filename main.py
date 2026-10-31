@@ -74,7 +74,6 @@ Return ONLY valid JSON matching this exact structure:
 }}
 """
 
-    # Updated to latest Gemini models as requested by API
     models = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
@@ -115,16 +114,12 @@ def get_audio_duration(path):
 def generate_sfx_audio(sfx_type, out_path):
     """Generates crisp meme sound effects using FFmpeg audio synthesis so links never break."""
     if sfx_type == "vine_boom":
-        # Deep sub-bass drop (Vine Boom style)
         filter_str = "aevalsrc='0.9*sin(2*PI*(130-90*t)*t)*exp(-3.5*t):d=0.55:s=44100'"
     elif sfx_type == "beep":
-        # Classic roast censor beep
         filter_str = "sine=frequency=1000:duration=0.25:sample_rate=44100,volume=0.4"
     elif sfx_type == "horn":
-        # Airhorn / Meme punch chord
         filter_str = "aevalsrc='0.3*(sin(2*PI*440*t)+sin(2*PI*554*t)+sin(2*PI*659*t))*exp(-2.5*t):d=0.45:s=44100'"
     else:
-        # Fast transition whoosh punch
         filter_str = "aevalsrc='0.6*sin(2*PI*(300-220*t)*t)*exp(-5*t):d=0.35:s=44100'"
 
     cmd = [
@@ -164,7 +159,6 @@ def fetch_giphy_mp4(query, out_path):
         except Exception as e:
             print(f"⚠️ Giphy fetch error for '{q}': {e}")
 
-    # Ultimate fallback solid visual if API fails
     cmd = [
         "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=0x1a1a2e:s=600x600:d=3",
         "-c:v", "libx264", "-pix_fmt", "yuv420p", out_path
@@ -187,7 +181,6 @@ def build_segment_video(idx, segment, out_clip_path):
     sfx_type = segment.get("sfx", "vine_boom")
     generate_sfx_audio(sfx_type, sfx_path)
 
-    # Mix voiceover + punchy SFX at the start of the line
     mix_cmd = [
         "ffmpeg", "-y",
         "-i", tts_raw,
@@ -202,12 +195,12 @@ def build_segment_video(idx, segment, out_clip_path):
     # 3. Fetch Giphy MP4
     fetch_giphy_mp4(segment.get("giphy_query", "meme reaction"), raw_gif_mp4)
 
-    # 4. Write sanitized overlay text to file (prevents FFmpeg escaping issues)
+    # 4. Write sanitized overlay text to file
     overlay_text = segment.get("overlay_text", "BRUH MOMENT").upper()
     with open(text_file, "w", encoding="utf-8") as f:
         f.write(overlay_text)
 
-    # 5. Render 1080x1920 Vertical Clip with Blurred Background + Crisp Meme + Bold Text Pop-up
+    # 5. Render 1080x1920 Vertical Clip
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
     filter_complex = (
         "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
