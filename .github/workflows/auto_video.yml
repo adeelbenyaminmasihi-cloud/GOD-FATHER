@@ -1,16 +1,27 @@
-name: GenZ Carry-Style Roast Pipeline
+# Save this file in your repo as:  .github/workflows/roast.yml
+name: Daily GenZ Roast Video
 
 on:
+  # Runs every day at 14:00 UTC = 7:00 PM Pakistan time (PKT = UTC+5).
+  # GitHub can start scheduled jobs a few minutes late - that is normal.
   schedule:
-    - cron: '0 9,16 * * *'
+    - cron: "0 14 * * *"
+  # Gives you a "Run workflow" button in the Actions tab for manual tests.
   workflow_dispatch:
 
+# Needed so the job can save topics_history.json back to the repository.
 permissions:
   contents: write
 
+# Never run two roast jobs at the same time (protects the topic memory file).
+concurrency:
+  group: genz-roast
+  cancel-in-progress: false
+
 jobs:
-  build-and-post-roast:
-    runs-on: ubuntu-latest
+  roast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
 
     steps:
       - name: Checkout Repository
@@ -19,31 +30,58 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install FFmpeg and Fonts
+      - name: Install FFmpeg and fonts
         run: |
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install -y ffmpeg fonts-dejavu-core
+          ffmpeg -version | head -n 1
 
-      - name: Install Python Dependencies Directly
+      - name: Install Python packages
         run: |
-          pip install --upgrade pip
-          pip install requests==2.32.3 edge-tts==6.1.19
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade requests edge-tts
 
-      - name: Ensure History File Exists and Run Script
+      - name: Ensure history file exists
+        run: |
+          if [ ! -f topics_history.json ]; then echo "[]" > topics_history.json; fi
+
+      - name: Run roast video generator
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          if [ ! -f topics_history.json ]; then echo "[]" > topics_history.json; fi
-          python main.py
+          PYTHONUNBUFFERED: "1"
+          # Optional tweaks (uncomment to use):
+          # TTS_VOICE: "ur-PK-UzmaNeural"
+          # WATERMARK: "@YourChannel"
+        run: python main.py
 
-      - name: Save Topic Memory to Repository
+      # Backup copy of the video (kept 3 days) in case Telegram is down.
+      - name: Upload video backup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roast-video
+          path: |
+            final_roast.mp4
+            final_roast_small.mp4
+          if-no-files-found: ignore
+          retention-days: 3
+
+      # Only runs when the video was generated AND sent successfully.
+      - name: Save topic memory to repository
+        if: success()
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add topics_history.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update roasted topics history [skip ci]" && git push)
+          if git diff --cached --quiet; then
+            echo "No memory changes to save."
+          else
+            git commit -m "chore: update topics history"
+            git pull --rebase origin "${{ github.ref_name }}" || true
+            git push
+          fi
