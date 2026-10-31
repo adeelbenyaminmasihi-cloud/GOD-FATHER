@@ -74,7 +74,8 @@ Return ONLY valid JSON matching this exact structure:
 }}
 """
 
-    models = ["gemini-2.5-flash", "gemini-2.0-flash"]
+    # Updated to latest Gemini models as requested by API
+    models = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
         payload = {
