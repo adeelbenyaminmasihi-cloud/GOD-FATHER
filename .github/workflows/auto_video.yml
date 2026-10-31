@@ -2,12 +2,11 @@ name: GenZ Carry-Style Roast Pipeline
 
 on:
   schedule:
-    # Runs at 2:00 PM PKT (09:00 UTC) and 9:00 PM PKT (16:00 UTC) daily
     - cron: '0 9,16 * * *'
-  workflow_dispatch: # Allows manual 1-click run from Actions tab
+  workflow_dispatch:
 
 permissions:
-  contents: write # Required so the bot can auto-save topics_history.json
+  contents: write
 
 jobs:
   build-and-post-roast:
@@ -27,18 +26,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
 
-      - name: Install Python Dependencies
+      - name: Install Python Dependencies Directly
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install requests==2.32.3 edge-tts==6.1.19
 
-      - name: Generate and Send Roast Video
+      - name: Ensure History File Exists and Run Script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          if [ ! -f topics_history.json ]; then echo "[]" > topics_history.json; fi
           python main.py
 
       - name: Save Topic Memory to Repository
